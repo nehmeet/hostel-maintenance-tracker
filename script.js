@@ -1,9 +1,46 @@
 // ============================================================
-// script.js — Client-Side Logic (v2)
+// script.js — Client-Side Logic (v3)
 // Hostel Maintenance & Complaint Tracker
 // Course: NCSM301 Web Development Laboratory
-// Labs 6-8: Event Handling, Regex Validation, Async Fetch
+// Labs 6-8: Event Handling, Regex Validation, Async Fetch, DOM
 // ============================================================
+
+// Admission number regex: starts with 24JE followed by 4 digits
+var ADMISSION_REGEX = /^24JE\d{4}$/i;
+
+// Staff options for assignment
+var STAFF_OPTIONS = [
+    'Rajesh - Plumber',
+    'Suresh - Electrician',
+    'Anil - Network Admin',
+    'Mukesh - Housekeeping',
+    'Ramesh - Mess Supervisor'
+];
+
+// ---- Global Toast Notification System (Replaces alert) ----
+function showToast(message, type) {
+    type = type || 'info';
+    var container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    var toast = document.createElement('div');
+    toast.className = 'toast toast-' + type;
+    toast.textContent = message;
+
+    container.appendChild(toast);
+
+    // Auto remove after 3 seconds
+    setTimeout(function () {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 3000);
+}
 
 // ---- Utility Helpers ----
 
@@ -25,6 +62,7 @@ function categoryClass(cat) {
 }
 
 function formatDate(dtStr) {
+    if (!dtStr) return '—';
     var d     = new Date(dtStr);
     var day   = String(d.getDate()).padStart(2, '0');
     var month = String(d.getMonth() + 1).padStart(2, '0');
@@ -34,13 +72,8 @@ function formatDate(dtStr) {
     return day + '-' + month + '-' + year + ' ' + hours + ':' + mins;
 }
 
-function nextStatusLabel(currentStatus) {
-    if (currentStatus === 'Submitted')   return 'Mark In Progress';
-    if (currentStatus === 'In Progress') return 'Mark Resolved';
-    return '';
-}
-
 function renderStars(rating) {
+    if (!rating) return '<span style="color:#aaa;">—</span>';
     var filled = '&#9733;';  // ★
     var empty  = '&#9734;';  // ☆
     var html   = '';
@@ -49,9 +82,6 @@ function renderStars(rating) {
     }
     return '<span class="rating-display">' + html + '</span>';
 }
-
-// Admission number regex: starts with 24JE followed by 4 digits
-var ADMISSION_REGEX = /^24JE\d{4}$/i;
 
 // ============================================================
 // LOGIN PAGE — index.php
@@ -80,7 +110,7 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
         panelStudent.classList.add('hidden');
     });
 
-    // Client-side admission number validation on student login form
+    // Client-side admission number regex validation
     var studentLoginForm = document.getElementById('student-login-form');
     if (studentLoginForm) {
         studentLoginForm.addEventListener('submit', function (event) {
@@ -115,6 +145,8 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
     var complaintForm = document.getElementById('complaint-form');
     if (!complaintForm) return; // not on student dashboard
 
+    var currentStudentPage = 1;
+
     // ---- Load Notices ----
     function loadNotices() {
         fetch('api_fetch.php?action=notices')
@@ -125,7 +157,7 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
             .then(function (data) {
                 var container = document.getElementById('notices-list');
 
-                if (data.length === 0) {
+                if (!Array.isArray(data) || data.length === 0) {
                     container.innerHTML = '<p class="no-notices">No notices at this time.</p>';
                     return;
                 }
@@ -146,28 +178,34 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
             });
     }
 
-    // ---- Load Student Complaints ----
-    function loadStudentComplaints() {
+    // ---- Load Student Complaints (Paginated) ----
+    function loadStudentComplaints(page) {
+        page = page || currentStudentPage;
         var msgEl = document.getElementById('history-message');
         msgEl.textContent = 'Loading your complaints...';
 
-        fetch('api_fetch.php?action=student_complaints')
+        fetch('api_fetch.php?action=student_complaints&page=' + page)
             .then(function (response) {
                 if (!response.ok) throw new Error('Server error');
                 return response.json();
             })
-            .then(function (data) {
+            .then(function (res) {
                 var tbody = $('#student-complaints-table tbody');
                 tbody.empty();
 
-                if (data.length === 0) {
+                var list = res.complaints || [];
+                currentStudentPage = res.page || 1;
+                var totalPages = res.total_pages || 1;
+
+                if (list.length === 0) {
                     msgEl.textContent = 'You have not submitted any complaints yet.';
+                    $('#student-pagination').hide();
                     return;
                 }
 
                 msgEl.textContent = '';
 
-                data.forEach(function (c) {
+                list.forEach(function (c) {
                     var actionCell = buildStudentAction(c);
 
                     var row = '<tr id="srow-' + c.id + '">' +
@@ -180,6 +218,12 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
                         '</tr>';
                     tbody.append(row);
                 });
+
+                // Update pagination controls
+                $('#student-pagination').show();
+                $('#stu-page-info').text('Page ' + currentStudentPage + ' of ' + totalPages);
+                $('#stu-btn-prev').prop('disabled', currentStudentPage <= 1);
+                $('#stu-btn-next').prop('disabled', currentStudentPage >= totalPages);
             })
             .catch(function (err) {
                 msgEl.textContent = 'Error loading complaints: ' + err.message;
@@ -194,10 +238,9 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
 
         // Rating: if status is 'Resolved'
         if (c.status === 'Resolved') {
-            if (c.rating !== null) {
+            if (c.rating !== null && c.rating > 0) {
                 return renderStars(c.rating);
             }
-            // Show rating dropdown + Rate button
             return '<select class="rating-select" data-id="' + c.id + '">' +
                 '<option value="">Rate</option>' +
                 '<option value="1">1 &#9733;</option>' +
@@ -209,11 +252,21 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
                 '<button class="btn btn-rate" data-id="' + c.id + '" data-action="rate">Rate</button>';
         }
 
-        // In Progress or Cancelled — no action
         if (c.status === 'In Progress') return '<em>In progress</em>';
         if (c.status === 'Cancelled')   return '<em>Cancelled</em>';
-        return '';
+        return '—';
     }
+
+    // ---- Pagination Button Clicks ----
+    $('#stu-btn-prev').on('click', function () {
+        if (currentStudentPage > 1) {
+            loadStudentComplaints(currentStudentPage - 1);
+        }
+    });
+
+    $('#stu-btn-next').on('click', function () {
+        loadStudentComplaints(currentStudentPage + 1);
+    });
 
     // ---- Form Validation & Async Submit ----
     complaintForm.addEventListener('submit', function (event) {
@@ -224,36 +277,22 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
         msgEl.className   = '';
 
         var admissionNo = document.getElementById('admission_no').value.trim();
-        var roomNumber  = document.getElementById('room_number').value.trim();
         var category    = document.getElementById('category').value.trim();
         var description = document.getElementById('description').value.trim();
 
-        // Validate admission number format
+        // Regex check
         if (!ADMISSION_REGEX.test(admissionNo)) {
-            msgEl.textContent = 'Invalid admission number format (expected: 24JE followed by 4 digits).';
-            msgEl.className   = 'msg-error';
+            showToast('Invalid admission number format (expected: 24JE####).', 'error');
             return;
         }
 
-        // Validate room number
-        var roomNum = Number(roomNumber);
-        if (!Number.isInteger(roomNum) || roomNum <= 0) {
-            msgEl.textContent = 'Room number must be a positive integer.';
-            msgEl.className   = 'msg-error';
-            return;
-        }
-
-        // Validate category
         if (category === '') {
-            msgEl.textContent = 'Please select a category.';
-            msgEl.className   = 'msg-error';
+            showToast('Please select a category.', 'error');
             return;
         }
 
-        // Validate description
         if (description === '') {
-            msgEl.textContent = 'Please enter a description.';
-            msgEl.className   = 'msg-error';
+            showToast('Please describe the issue.', 'error');
             return;
         }
 
@@ -276,19 +315,16 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
         })
         .then(function (data) {
             if (data.success) {
-                msgEl.textContent = 'Complaint #' + data.id + ' submitted successfully!';
-                msgEl.className   = 'msg-success';
+                showToast(data.message || 'Complaint submitted successfully!', 'success');
                 document.getElementById('category').value    = '';
                 document.getElementById('description').value = '';
-                loadStudentComplaints(); // refresh table
+                loadStudentComplaints(1); // refresh table to page 1
             } else {
-                msgEl.textContent = data.error || 'Submission failed.';
-                msgEl.className   = 'msg-error';
+                showToast(data.error || 'Submission failed.', 'error');
             }
         })
         .catch(function (err) {
-            msgEl.textContent = 'Request failed: ' + err.message;
-            msgEl.className   = 'msg-error';
+            showToast('Request failed: ' + err.message, 'error');
         })
         .finally(function () {
             submitBtn.disabled    = false;
@@ -296,12 +332,10 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
         });
     });
 
-    // ---- Delegated Click: Cancel & Rate ----
+    // ---- Delegated Click: Cancel Ticket ----
     $('#student-complaints-table').on('click', '.btn-cancel', function () {
         var btn = $(this);
         var id  = btn.data('id');
-
-        if (!confirm('Are you sure you want to cancel complaint #' + id + '?')) return;
 
         btn.prop('disabled', true).text('Cancelling...');
 
@@ -316,23 +350,22 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
         })
         .then(function (data) {
             if (data.success) {
-                // Update row in-place
+                showToast(data.message || 'Complaint cancelled.', 'success');
                 var row = $('#srow-' + id);
                 row.find('td').eq(3).html('<span class="badge status-cancelled">Cancelled</span>');
                 row.find('.action-cell').html('<em>Cancelled</em>');
             } else {
-                alert(data.error || 'Cancel failed.');
+                showToast(data.error || 'Cancel failed.', 'error');
                 btn.prop('disabled', false).text('Cancel');
             }
         })
         .catch(function (err) {
-            alert('Request failed: ' + err.message);
-        })
-        .finally(function () {
-            if (btn.parent().length) btn.prop('disabled', false);
+            showToast('Request failed: ' + err.message, 'error');
+            btn.prop('disabled', false).text('Cancel');
         });
     });
 
+    // ---- Delegated Click: Rate Resolved Ticket ----
     $('#student-complaints-table').on('click', '.btn-rate', function () {
         var btn    = $(this);
         var id     = btn.data('id');
@@ -340,7 +373,7 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
         var rating = Number(select.val());
 
         if (!rating || rating < 1 || rating > 5) {
-            alert('Please select a rating between 1 and 5.');
+            showToast('Please select a rating between 1 and 5.', 'error');
             return;
         }
 
@@ -357,24 +390,23 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
         })
         .then(function (data) {
             if (data.success) {
+                showToast(data.message || 'Rating submitted!', 'success');
                 var row = $('#srow-' + id);
                 row.find('.action-cell').html(renderStars(data.rating));
             } else {
-                alert(data.error || 'Rating failed.');
+                showToast(data.error || 'Rating failed.', 'error');
                 btn.prop('disabled', false).text('Rate');
             }
         })
         .catch(function (err) {
-            alert('Request failed: ' + err.message);
-        })
-        .finally(function () {
-            if (btn.parent().length) btn.prop('disabled', false);
+            showToast('Request failed: ' + err.message, 'error');
+            btn.prop('disabled', false).text('Rate');
         });
     });
 
     // ---- Initial Load ----
     loadNotices();
-    loadStudentComplaints();
+    loadStudentComplaints(1);
 })();
 
 // ============================================================
@@ -385,6 +417,8 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
     var adminTable = document.getElementById('admin-complaints-table');
     if (!adminTable) return; // not on admin dashboard
 
+    var currentAdminPage = 1;
+
     // ---- Load Stats ----
     function loadStats() {
         fetch('api_fetch.php?action=stats')
@@ -393,22 +427,35 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
                 return response.json();
             })
             .then(function (data) {
-                $('#stat-open').text(data.total_open);
-                $('#stat-resolved-today').text(data.resolved_today);
-                $('#stat-pending').text(data.pending);
+                $('#stat-open').text(data.total_open !== undefined ? data.total_open : '0');
+                $('#stat-resolved-today').text(data.resolved_today !== undefined ? data.resolved_today : '0');
+                $('#stat-pending').text(data.pending_48h !== undefined ? data.pending_48h : '0');
             })
             .catch(function () {
                 $('#stat-open, #stat-resolved-today, #stat-pending').text('?');
             });
     }
 
-    // ---- Load Admin Complaints ----
-    function loadAdminComplaints() {
+    // ---- Helper to Build Staff Dropdown HTML ----
+    function buildStaffSelect(id) {
+        var html = '<select class="staff-select" data-id="' + id + '">';
+        html += '<option value="">-- Assign Staff --</option>';
+        STAFF_OPTIONS.forEach(function (staff) {
+            html += '<option value="' + staff + '">' + staff + '</option>';
+        });
+        html += '</select>';
+        return html;
+    }
+
+    // ---- Load Admin Complaints (Paginated & Filtered) ----
+    function loadAdminComplaints(page) {
+        page = page || currentAdminPage;
         var block    = $('#admin-filter-block').val();
         var category = $('#admin-filter-category').val();
         var status   = $('#admin-filter-status').val();
 
         var url = 'api_fetch.php?action=admin_complaints' +
+            '&page='     + page +
             '&block='    + encodeURIComponent(block) +
             '&category=' + encodeURIComponent(category) +
             '&status='   + encodeURIComponent(status);
@@ -421,36 +468,42 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
                 if (!response.ok) throw new Error('Server error');
                 return response.json();
             })
-            .then(function (data) {
+            .then(function (res) {
                 var tbody = $('#admin-complaints-table tbody');
                 tbody.empty();
 
-                if (data.length === 0) {
+                var list = res.complaints || [];
+                currentAdminPage = res.page || 1;
+                var totalPages   = res.total_pages || 1;
+
+                if (list.length === 0) {
                     msgEl.textContent = 'No complaints found for the selected filters.';
+                    $('#admin-pagination').hide();
                     return;
                 }
 
                 msgEl.textContent = '';
 
-                data.forEach(function (c) {
+                list.forEach(function (c) {
                     var actionCell = '';
-                    var label = nextStatusLabel(c.status);
 
-                    if (label !== '') {
-                        actionCell = '<button class="btn btn-advance" data-id="' + c.id + '">' + label + '</button>';
+                    if (c.status === 'Submitted') {
+                        // Dropdown for staff assignment + In Progress button
+                        actionCell = buildStaffSelect(c.id) +
+                            '<button class="btn btn-advance" data-id="' + c.id + '" data-action="in_progress">Assign &amp; In Progress</button>';
+                    } else if (c.status === 'In Progress') {
+                        // Mark Resolved button
+                        actionCell = '<button class="btn btn-advance" data-id="' + c.id + '" data-action="resolved">Mark Resolved</button>';
                     } else if (c.status === 'Resolved') {
                         actionCell = '<em>Resolved</em>';
+                    } else if (c.status === 'Cancelled') {
+                        actionCell = '<em>Cancelled</em>';
                     } else {
-                        actionCell = '<em>—</em>';
+                        actionCell = '—';
                     }
 
-                    // Rating column
-                    var ratingCell = '';
-                    if (c.rating !== null) {
-                        ratingCell = renderStars(c.rating);
-                    } else {
-                        ratingCell = '<span style="color:#aaa;">—</span>';
-                    }
+                    var assignedStaffCell = c.assigned_staff ? '<strong>' + c.assigned_staff + '</strong>' : '<span style="color:#aaa;">Unassigned</span>';
+                    var ratingCell        = renderStars(c.rating);
 
                     var row = '<tr id="arow-' + c.id + '">' +
                         '<td>' + c.id + '</td>' +
@@ -461,29 +514,65 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
                         '<td><span class="badge ' + categoryClass(c.category) + '">' + c.category + '</span></td>' +
                         '<td>' + c.description + '</td>' +
                         '<td><span class="badge ' + statusClass(c.status) + '">' + c.status + '</span></td>' +
+                        '<td class="staff-cell">' + assignedStaffCell + '</td>' +
                         '<td>' + ratingCell + '</td>' +
                         '<td>' + formatDate(c.created_at) + '</td>' +
                         '<td class="action-cell">' + actionCell + '</td>' +
                         '</tr>';
                     tbody.append(row);
                 });
+
+                // Update pagination controls
+                $('#admin-pagination').show();
+                $('#adm-page-info').text('Page ' + currentAdminPage + ' of ' + totalPages);
+                $('#adm-btn-prev').prop('disabled', currentAdminPage <= 1);
+                $('#adm-btn-next').prop('disabled', currentAdminPage >= totalPages);
             })
             .catch(function (err) {
                 msgEl.textContent = 'Error loading complaints: ' + err.message;
             });
     }
 
-    // ---- Advance Status (delegated click) ----
+    // ---- Pagination Button Clicks ----
+    $('#adm-btn-prev').on('click', function () {
+        if (currentAdminPage > 1) {
+            loadAdminComplaints(currentAdminPage - 1);
+        }
+    });
+
+    $('#adm-btn-next').on('click', function () {
+        loadAdminComplaints(currentAdminPage + 1);
+    });
+
+    // ---- Advance Status & Staff Assignment (delegated click) ----
     $('#admin-complaints-table').on('click', '.btn-advance', function () {
-        var btn = $(this);
-        var id  = btn.data('id');
+        var btn    = $(this);
+        var id     = btn.data('id');
+        var action = btn.data('action');
+
+        var payload = {
+            action: 'update_status',
+            id:     id
+        };
+
+        if (action === 'in_progress') {
+            var staffSelect = $('select.staff-select[data-id="' + id + '"]');
+            var selectedStaff = staffSelect.val() ? staffSelect.val().trim() : '';
+
+            if (selectedStaff === '') {
+                showToast('Please select a staff member to assign from the dropdown.', 'error');
+                staffSelect.focus();
+                return;
+            }
+            payload.assigned_staff = selectedStaff;
+        }
 
         btn.prop('disabled', true).text('Updating...');
 
         fetch('api_actions.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'update_status', id: id })
+            body: JSON.stringify(payload)
         })
         .then(function (response) {
             if (!response.ok) throw new Error('Server error');
@@ -491,97 +580,109 @@ var ADMISSION_REGEX = /^24JE\d{4}$/i;
         })
         .then(function (data) {
             if (data.success) {
+                showToast(data.message || 'Status updated successfully!', 'success');
+
                 var row      = $('#arow-' + id);
                 var statusTd = row.find('td').eq(7);
                 statusTd.html('<span class="badge ' + statusClass(data.status) + '">' + data.status + '</span>');
 
-                var newLabel = nextStatusLabel(data.status);
-                if (newLabel !== '') {
-                    btn.prop('disabled', false).text(newLabel);
-                } else {
-                    btn.replaceWith('<em>Resolved</em>');
+                if (data.status === 'In Progress') {
+                    // Update assigned staff column
+                    row.find('.staff-cell').html('<strong>' + data.assigned_staff + '</strong>');
+                    // Change action button to Mark Resolved
+                    row.find('.action-cell').html(
+                        '<button class="btn btn-advance" data-id="' + id + '" data-action="resolved">Mark Resolved</button>'
+                    );
+                } else if (data.status === 'Resolved') {
+                    row.find('.action-cell').html('<em>Resolved</em>');
                 }
 
-                loadStats(); // refresh stat cards
+                loadStats(); // refresh dashboard stats
             } else {
-                alert(data.error || 'Update failed.');
+                showToast(data.error || 'Update failed.', 'error');
                 btn.prop('disabled', false);
+                if (action === 'in_progress') {
+                    btn.html('Assign &amp; In Progress');
+                } else {
+                    btn.text('Mark Resolved');
+                }
             }
         })
         .catch(function (err) {
-            alert('Request failed: ' + err.message);
-        })
-        .finally(function () {
-            if (btn.parent().length) btn.prop('disabled', false);
+            showToast('Request failed: ' + err.message, 'error');
+            btn.prop('disabled', false);
         });
     });
 
-    // ---- Post Notice ----
+    // ---- Post Notice Form Submission ----
     var noticeForm = document.getElementById('notice-form');
-    noticeForm.addEventListener('submit', function (event) {
-        event.preventDefault();
+    if (noticeForm) {
+        noticeForm.addEventListener('submit', function (event) {
+            event.preventDefault();
 
-        var msgEl   = document.getElementById('notice-form-message');
-        var title   = document.getElementById('notice-title').value.trim();
-        var message = document.getElementById('notice-message').value.trim();
+            var title   = document.getElementById('notice-title').value.trim();
+            var message = document.getElementById('notice-message').value.trim();
 
-        msgEl.textContent = '';
-        msgEl.className   = '';
-
-        if (title === '' || message === '') {
-            msgEl.textContent = 'Both title and message are required.';
-            msgEl.className   = 'msg-error';
-            return;
-        }
-
-        var postBtn = document.getElementById('btn-post-notice');
-        postBtn.disabled = true;
-        postBtn.textContent = 'Posting...';
-
-        fetch('api_actions.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action:  'post_notice',
-                title:   title,
-                message: message
-            })
-        })
-        .then(function (response) {
-            if (!response.ok) throw new Error('Server error');
-            return response.json();
-        })
-        .then(function (data) {
-            if (data.success) {
-                msgEl.textContent = 'Notice posted successfully!';
-                msgEl.className   = 'msg-success';
-                document.getElementById('notice-title').value   = '';
-                document.getElementById('notice-message').value = '';
-            } else {
-                msgEl.textContent = data.error || 'Failed to post notice.';
-                msgEl.className   = 'msg-error';
+            if (title === '' || message === '') {
+                showToast('Both notice title and message are required.', 'error');
+                return;
             }
-        })
-        .catch(function (err) {
-            msgEl.textContent = 'Request failed: ' + err.message;
-            msgEl.className   = 'msg-error';
-        })
-        .finally(function () {
-            postBtn.disabled    = false;
-            postBtn.textContent = 'Post Notice';
-        });
-    });
 
-    // ---- Bind Filters ----
-    $('#admin-filter-block').on('change', loadAdminComplaints);
-    $('#admin-filter-category').on('change', loadAdminComplaints);
-    $('#admin-filter-status').on('change', loadAdminComplaints);
+            var postBtn = document.getElementById('btn-post-notice');
+            postBtn.disabled = true;
+            postBtn.textContent = 'Posting...';
+
+            fetch('api_actions.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action:  'post_notice',
+                    title:   title,
+                    message: message
+                })
+            })
+            .then(function (response) {
+                if (!response.ok) throw new Error('Server error');
+                return response.json();
+            })
+            .then(function (data) {
+                if (data.success) {
+                    showToast(data.message || 'Notice posted successfully!', 'success');
+                    document.getElementById('notice-title').value   = '';
+                    document.getElementById('notice-message').value = '';
+                } else {
+                    showToast(data.error || 'Failed to post notice.', 'error');
+                }
+            })
+            .catch(function (err) {
+                showToast('Request failed: ' + err.message, 'error');
+            })
+            .finally(function () {
+                postBtn.disabled    = false;
+                postBtn.textContent = 'Post Notice';
+            });
+        });
+    }
+
+    // ---- Filter Event Listeners (Resets to page 1) ----
+    $('#admin-filter-block').on('change', function () {
+        currentAdminPage = 1;
+        loadAdminComplaints(1);
+    });
+    $('#admin-filter-category').on('change', function () {
+        currentAdminPage = 1;
+        loadAdminComplaints(1);
+    });
+    $('#admin-filter-status').on('change', function () {
+        currentAdminPage = 1;
+        loadAdminComplaints(1);
+    });
     $('#admin-btn-refresh').on('click', function () {
         loadStats();
-        loadAdminComplaints();
+        loadAdminComplaints(currentAdminPage);
     });
 
     // ---- Initial Load ----
     loadStats();
-    loadAdminComplaints();
+    loadAdminComplaints(1);
 })();

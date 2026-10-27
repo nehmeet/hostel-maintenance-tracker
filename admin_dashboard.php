@@ -34,7 +34,7 @@ $adminUser = htmlspecialchars($_SESSION['admin_user']);
         </nav>
     </header>
 
-    <!-- ===== Section 1: Statistics ===== -->
+    <!-- ===== Section 1: Dashboard Statistics ===== -->
     <div class="section" id="section-stats">
         <h2>&#128202; Dashboard Statistics</h2>
         <div class="stats-row">
@@ -48,7 +48,7 @@ $adminUser = htmlspecialchars($_SESSION['admin_user']);
             </div>
             <div class="stat-card stat-pending">
                 <p class="stat-number" id="stat-pending">—</p>
-                <p class="stat-label">Pending</p>
+                <p class="stat-label">Pending (&gt; 48 hours)</p>
             </div>
         </div>
     </div>
@@ -73,7 +73,7 @@ $adminUser = htmlspecialchars($_SESSION['admin_user']);
         </form>
     </div>
 
-    <!-- ===== Section 3: Manage Complaints ===== -->
+    <!-- ===== Section 3: Master Paginated Complaints Table ===== -->
     <div class="section" id="section-admin-complaints">
         <h2>Manage Complaints</h2>
 
@@ -82,9 +82,9 @@ $adminUser = htmlspecialchars($_SESSION['admin_user']);
                 <label for="admin-filter-block">Block:</label>
                 <select id="admin-filter-block">
                     <option value="All">All Blocks</option>
-                    <option value="A">Block A (Jasper)</option>
-                    <option value="B">Block B (Amber)</option>
-                    <option value="C">Block C (Sapphire)</option>
+                    <option value="A">Block A</option>
+                    <option value="B">Block B</option>
+                    <option value="C">Block C</option>
                 </select>
             </div>
             <div class="filter-group">
@@ -122,6 +122,7 @@ $adminUser = htmlspecialchars($_SESSION['admin_user']);
                     <th>Category</th>
                     <th>Description</th>
                     <th>Status</th>
+                    <th>Assigned Staff</th>
                     <th>Rating</th>
                     <th>Date</th>
                     <th>Action</th>
@@ -132,9 +133,19 @@ $adminUser = htmlspecialchars($_SESSION['admin_user']);
             </tbody>
         </table>
         <p id="admin-table-message" class="msg-info"></p>
+
+        <!-- Master Pagination Controls -->
+        <div class="pagination-bar" id="admin-pagination" style="display:none;">
+            <button type="button" id="adm-btn-prev" class="btn btn-secondary btn-sm" disabled>&laquo; Prev</button>
+            <span id="adm-page-info" class="page-info">Page 1 of 1</span>
+            <button type="button" id="adm-btn-next" class="btn btn-secondary btn-sm" disabled>Next &raquo;</button>
+        </div>
     </div>
 
 </div>
+
+<!-- Non-blocking Toast Notification Container -->
+<div id="toast-container" class="toast-container"></div>
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="script.js"></script>

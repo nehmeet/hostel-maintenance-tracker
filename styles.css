@@ -1,7 +1,7 @@
 /* ============================================================
-   styles.css — Hostel Maintenance & Complaint Tracker (v2)
+   styles.css — Hostel Maintenance & Complaint Tracker (v3)
    Course: NCSM301 Web Development Laboratory
-   Lab 4 & Lab 5: Box Model, External Stylesheet
+   Lab 4 & Lab 5: Box Model, External Stylesheet, Animations
    ============================================================ */
 
 /* ---------- Reset & Base ---------- */
@@ -21,12 +21,13 @@ body {
 
 /* ---------- Page Container ---------- */
 .page-container {
-    max-width: 900px;
+    max-width: 1000px;
     margin: 30px auto;
     padding: 24px;
-    border: 1px solid gray;
+    border: 1px solid #bbb;
     background-color: #ffffff;
     border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 /* ---------- Header ---------- */
@@ -39,14 +40,14 @@ body {
 
 .site-header h1 {
     margin: 0 0 4px;
-    font-size: 1.55em;
+    font-size: 1.6em;
     color: #2c3e50;
 }
 
 .subtitle {
     margin: 0;
     color: #666;
-    font-size: 0.93em;
+    font-size: 0.95em;
 }
 
 /* ---------- Top Navigation ---------- */
@@ -83,7 +84,7 @@ body {
 
 .section h2 {
     margin: 0 0 14px;
-    font-size: 1.2em;
+    font-size: 1.25em;
     color: #2c3e50;
     border-bottom: 1px solid #e0e0e0;
     padding-bottom: 8px;
@@ -278,6 +279,11 @@ body {
     background-color: #d68910;
 }
 
+.btn-sm {
+    padding: 5px 12px;
+    font-size: 0.82em;
+}
+
 /* ---------- Filter Bar ---------- */
 .filter-bar {
     display: flex;
@@ -414,6 +420,7 @@ body {
     padding: 8px 9px;
     text-align: left;
     border: 1px solid #ddd;
+    vertical-align: middle;
 }
 
 .data-table tbody tr:nth-child(even) {
@@ -422,6 +429,18 @@ body {
 
 .data-table tbody tr:hover {
     background-color: #e8ecf0;
+}
+
+/* Staff select inside admin action column */
+.staff-select {
+    padding: 4px 6px;
+    font-size: 0.82em;
+    border: 1px solid #bbb;
+    border-radius: 3px;
+    margin-bottom: 5px;
+    display: block;
+    width: 100%;
+    max-width: 160px;
 }
 
 /* ---------- Status Badges ---------- */
@@ -495,7 +514,23 @@ body {
     border-radius: 3px;
 }
 
-/* ---------- Messages ---------- */
+/* ---------- Pagination Bar ---------- */
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 8px 0;
+}
+
+.page-info {
+    font-size: 0.88em;
+    font-weight: bold;
+    color: #555;
+}
+
+/* ---------- Messages & Alerts ---------- */
 .msg-success {
     padding: 10px 14px;
     margin-bottom: 12px;
@@ -520,4 +555,66 @@ body {
     color: #666;
     font-size: 0.88em;
     font-style: italic;
+}
+
+/* ---------- Flash Messages / Toast Notifications ---------- */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.toast {
+    min-width: 260px;
+    max-width: 380px;
+    padding: 12px 18px;
+    border-radius: 5px;
+    font-size: 0.9em;
+    font-weight: 500;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    pointer-events: auto;
+    animation: toastSlideIn 0.3s ease-out, toastFadeOut 0.5s ease-in 2.5s forwards;
+}
+
+.toast-success {
+    background-color: #27ae60;
+    border-left: 5px solid #1e8449;
+}
+
+.toast-error {
+    background-color: #e74c3c;
+    border-left: 5px solid #c0392b;
+}
+
+.toast-info {
+    background-color: #2980b9;
+    border-left: 5px solid #1f618d;
+}
+
+@keyframes toastSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes toastFadeOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(10px);
+    }
 }

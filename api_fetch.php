@@ -13,7 +13,7 @@ $action = isset($_GET['action']) ? trim($_GET['action']) : '';
 switch ($action) {
 
     // ============================================================
-    // FETCH: Student's own complaints
+    // FETCH: Student's own complaints (Paginated, 10 per page)
     // ============================================================
     case 'student_complaints':
         if (!isset($_SESSION['student_id'])) {
@@ -23,26 +23,55 @@ switch ($action) {
         }
 
         $studentId = (int) $_SESSION['student_id'];
+        $page      = isset($_GET['page']) ? max(1, (int) $_GET['page']) : 1;
+        $limit     = 10;
+        $offset    = ($page - 1) * $limit;
+
+        // Total count
+        $countStmt = $conn->prepare('SELECT COUNT(*) AS total FROM complaints WHERE student_id = ?');
+        $countStmt->bind_param('i', $studentId);
+        $countStmt->execute();
+        $totalResult = $countStmt->get_result();
+        $totalRows   = (int) $totalResult->fetch_assoc()['total'];
+        $countStmt->close();
+
+        $totalPages = max(1, (int) ceil($totalRows / $limit));
+        if ($page > $totalPages) {
+            $page   = $totalPages;
+            $offset = ($page - 1) * $limit;
+        }
+
+        // Paginated rows
         $stmt = $conn->prepare(
-            'SELECT id, category, description, status, rating, created_at
-             FROM complaints WHERE student_id = ? ORDER BY created_at DESC'
+            'SELECT id, category, description, status, assigned_staff, rating, created_at
+             FROM complaints
+             WHERE student_id = ?
+             ORDER BY created_at DESC
+             LIMIT ? OFFSET ?'
         );
-        $stmt->bind_param('i', $studentId);
+        $stmt->bind_param('iii', $studentId, $limit, $offset);
         $stmt->execute();
         $result = $stmt->get_result();
 
         $rows = [];
         while ($row = $result->fetch_assoc()) {
-            $row['description'] = htmlspecialchars($row['description']);
+            $row['description']    = htmlspecialchars($row['description']);
+            $row['assigned_staff'] = $row['assigned_staff'] ? htmlspecialchars($row['assigned_staff']) : null;
             $rows[] = $row;
         }
         $stmt->close();
 
-        echo json_encode($rows);
+        echo json_encode([
+            'success'       => true,
+            'complaints'    => $rows,
+            'page'          => $page,
+            'total_pages'   => $totalPages,
+            'total_records' => $totalRows
+        ]);
         break;
 
     // ============================================================
-    // FETCH: All complaints (admin) with optional filters
+    // FETCH: All complaints (admin) with filters & pagination
     // ============================================================
     case 'admin_complaints':
         if (!isset($_SESSION['admin_id'])) {
@@ -54,49 +83,82 @@ switch ($action) {
         $block    = isset($_GET['block'])    ? trim($_GET['block'])    : 'All';
         $category = isset($_GET['category']) ? trim($_GET['category']) : 'All';
         $status   = isset($_GET['status'])   ? trim($_GET['status'])   : 'All';
+        $page     = isset($_GET['page'])     ? max(1, (int) $_GET['page']) : 1;
+        $limit    = 10;
+        $offset   = ($page - 1) * $limit;
 
-        $sql    = 'SELECT id, student_name, admission_no, room_number, block, category, description, status, rating, created_at FROM complaints WHERE 1=1';
-        $types  = '';
-        $params = [];
+        $whereSql = ' WHERE 1=1';
+        $types    = '';
+        $params   = [];
 
         if ($block !== 'All') {
-            $sql    .= ' AND block = ?';
-            $types  .= 's';
+            $whereSql .= ' AND block = ?';
+            $types    .= 's';
             $params[] = $block;
         }
         if ($category !== 'All') {
-            $sql    .= ' AND category = ?';
-            $types  .= 's';
+            $whereSql .= ' AND category = ?';
+            $types    .= 's';
             $params[] = $category;
         }
         if ($status !== 'All') {
-            $sql    .= ' AND status = ?';
-            $types  .= 's';
+            $whereSql .= ' AND status = ?';
+            $types    .= 's';
             $params[] = $status;
         }
 
-        $sql .= ' ORDER BY created_at DESC';
-
-        $stmt = $conn->prepare($sql);
+        // Count total matching records
+        $countSql  = 'SELECT COUNT(*) AS total FROM complaints' . $whereSql;
+        $countStmt = $conn->prepare($countSql);
         if ($types !== '') {
-            $stmt->bind_param($types, ...$params);
+            $countStmt->bind_param($types, ...$params);
         }
+        $countStmt->execute();
+        $totalResult = $countStmt->get_result();
+        $totalRows   = (int) $totalResult->fetch_assoc()['total'];
+        $countStmt->close();
+
+        $totalPages = max(1, (int) ceil($totalRows / $limit));
+        if ($page > $totalPages) {
+            $page   = $totalPages;
+            $offset = ($page - 1) * $limit;
+        }
+
+        // Fetch paginated page
+        $dataSql = 'SELECT id, student_name, admission_no, room_number, block, category, description, status, assigned_staff, rating, created_at FROM complaints' . $whereSql . ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+        $stmt    = $conn->prepare($dataSql);
+
+        $fetchTypes  = $types . 'ii';
+        $fetchParams = array_merge($params, [$limit, $offset]);
+        $stmt->bind_param($fetchTypes, ...$fetchParams);
+
         $stmt->execute();
         $result = $stmt->get_result();
 
         $rows = [];
         while ($row = $result->fetch_assoc()) {
-            $row['student_name'] = htmlspecialchars($row['student_name']);
-            $row['description']  = htmlspecialchars($row['description']);
+            $row['student_name']   = htmlspecialchars($row['student_name']);
+            $row['admission_no']   = htmlspecialchars($row['admission_no']);
+            $row['description']    = htmlspecialchars($row['description']);
+            $row['assigned_staff'] = $row['assigned_staff'] ? htmlspecialchars($row['assigned_staff']) : null;
             $rows[] = $row;
         }
         $stmt->close();
 
-        echo json_encode($rows);
+        echo json_encode([
+            'success'       => true,
+            'complaints'    => $rows,
+            'page'          => $page,
+            'total_pages'   => $totalPages,
+            'total_records' => $totalRows
+        ]);
         break;
 
     // ============================================================
     // FETCH: Dashboard statistics (admin)
+    // - Total Open
+    // - Resolved Today
+    // - Pending (> 48 hours)
     // ============================================================
     case 'stats':
         if (!isset($_SESSION['admin_id'])) {
@@ -105,27 +167,27 @@ switch ($action) {
             break;
         }
 
-        // Total Open = Submitted + In Progress
+        // 1. Total Open = Submitted + In Progress
         $r1 = $conn->query("SELECT COUNT(*) AS cnt FROM complaints WHERE status IN ('Submitted','In Progress')");
-        $totalOpen = $r1->fetch_assoc()['cnt'];
+        $totalOpen = (int) $r1->fetch_assoc()['cnt'];
 
-        // Resolved Today
+        // 2. Resolved Today = Resolved status & updated today
         $r2 = $conn->query("SELECT COUNT(*) AS cnt FROM complaints WHERE status = 'Resolved' AND DATE(updated_at) = CURDATE()");
-        $resolvedToday = $r2->fetch_assoc()['cnt'];
+        $resolvedToday = (int) $r2->fetch_assoc()['cnt'];
 
-        // Pending = Submitted only
-        $r3 = $conn->query("SELECT COUNT(*) AS cnt FROM complaints WHERE status = 'Submitted'");
-        $pending = $r3->fetch_assoc()['cnt'];
+        // 3. Pending (> 48 hours) = Not yet resolved/cancelled, submitted > 48 hours ago
+        $r3 = $conn->query("SELECT COUNT(*) AS cnt FROM complaints WHERE status IN ('Submitted','In Progress') AND created_at < DATE_SUB(NOW(), INTERVAL 48 HOUR)");
+        $pending48h = (int) $r3->fetch_assoc()['cnt'];
 
         echo json_encode([
-            'total_open'     => (int) $totalOpen,
-            'resolved_today' => (int) $resolvedToday,
-            'pending'        => (int) $pending
+            'total_open'     => $totalOpen,
+            'resolved_today' => $resolvedToday,
+            'pending_48h'    => $pending48h
         ]);
         break;
 
     // ============================================================
-    // FETCH: Notices (public)
+    // FETCH: Notices (public/student)
     // ============================================================
     case 'notices':
         $stmt = $conn->prepare(
@@ -140,8 +202,9 @@ switch ($action) {
 
         $rows = [];
         while ($row = $result->fetch_assoc()) {
-            $row['title']   = htmlspecialchars($row['title']);
-            $row['message'] = htmlspecialchars($row['message']);
+            $row['title']     = htmlspecialchars($row['title']);
+            $row['message']   = htmlspecialchars($row['message']);
+            $row['posted_by'] = htmlspecialchars($row['posted_by']);
             $rows[] = $row;
         }
         $stmt->close();

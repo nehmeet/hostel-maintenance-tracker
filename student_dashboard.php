@@ -99,7 +99,7 @@ $studentId    = (int) $_SESSION['student_id'];
         </form>
     </div>
 
-    <!-- ===== Section 3: My Complaint History ===== -->
+    <!-- ===== Section 3: My Complaint History (Paginated) ===== -->
     <div class="section" id="section-history">
         <h2>My Complaint History</h2>
 
@@ -119,12 +119,22 @@ $studentId    = (int) $_SESSION['student_id'];
             </tbody>
         </table>
         <p id="history-message" class="msg-info"></p>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-bar" id="student-pagination" style="display:none;">
+            <button type="button" id="stu-btn-prev" class="btn btn-secondary btn-sm" disabled>&laquo; Prev</button>
+            <span id="stu-page-info" class="page-info">Page 1 of 1</span>
+            <button type="button" id="stu-btn-next" class="btn btn-secondary btn-sm" disabled>Next &raquo;</button>
+        </div>
     </div>
 
 </div>
 
 <!-- Hidden data for JS -->
 <input type="hidden" id="session-student-id" value="<?php echo $studentId; ?>">
+
+<!-- Non-blocking Toast Notification Container -->
+<div id="toast-container" class="toast-container"></div>
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="script.js"></script>

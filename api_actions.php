@@ -1,8 +1,8 @@
 <?php
 // ============================================================
 // api_actions.php — POST Action Router
-// Handles: submit_complaint, update_status, cancel_complaint,
-//          submit_rating, post_notice
+// Handles: submit_complaint, update_status (with staff assignment),
+//          cancel_complaint, submit_rating, post_notice
 // Course: NCSM301 Web Development Laboratory
 // ============================================================
 session_start();
@@ -13,7 +13,6 @@ require 'db.php';
 $input  = json_decode(file_get_contents('php://input'), true);
 $action = isset($input['action']) ? trim($input['action']) : '';
 
-// ---- Route by action ----
 switch ($action) {
 
     // ============================================================
@@ -42,7 +41,7 @@ switch ($action) {
             break;
         }
         if (!in_array($category, $validCats, true)) {
-            echo json_encode(['success' => false, 'error' => 'Invalid category.']);
+            echo json_encode(['success' => false, 'error' => 'Invalid category selected.']);
             break;
         }
 
@@ -53,21 +52,21 @@ switch ($action) {
         $stmt->bind_param('ississs', $studentId, $admissionNo, $studentName, $roomNumber, $block, $category, $description);
 
         if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'id' => $stmt->insert_id]);
+            echo json_encode(['success' => true, 'id' => $stmt->insert_id, 'message' => 'Complaint #' . $stmt->insert_id . ' submitted successfully!']);
         } else {
-            echo json_encode(['success' => false, 'error' => 'Database error.']);
+            echo json_encode(['success' => false, 'error' => 'Database error while saving complaint.']);
         }
         $stmt->close();
         break;
 
     // ============================================================
-    // ACTION: Update complaint status (admin only)
-    // Submitted -> In Progress -> Resolved
+    // ACTION: Update complaint status & staff assignment (admin only)
+    // Submitted -> In Progress (Staff required) -> Resolved
     // ============================================================
     case 'update_status':
         if (!isset($_SESSION['admin_id'])) {
             http_response_code(401);
-            echo json_encode(['success' => false, 'error' => 'Unauthorised.']);
+            echo json_encode(['success' => false, 'error' => 'Unauthorised access.']);
             break;
         }
 
@@ -77,12 +76,7 @@ switch ($action) {
             break;
         }
 
-        $transitions = [
-            'Submitted'   => 'In Progress',
-            'In Progress' => 'Resolved'
-        ];
-
-        $stmt = $conn->prepare('SELECT status FROM complaints WHERE id = ?');
+        $stmt = $conn->prepare('SELECT status, assigned_staff FROM complaints WHERE id = ?');
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -93,21 +87,46 @@ switch ($action) {
             break;
         }
 
-        $current = $result->fetch_assoc()['status'];
+        $row     = $result->fetch_assoc();
+        $current = $row['status'];
         $stmt->close();
 
-        if (!isset($transitions[$current])) {
-            echo json_encode(['success' => false, 'error' => 'No further status transition available.']);
-            break;
+        if ($current === 'Submitted') {
+            // Moving to In Progress — MUST select a staff member
+            $staff = isset($input['assigned_staff']) ? trim($input['assigned_staff']) : '';
+            if ($staff === '') {
+                echo json_encode(['success' => false, 'error' => 'Please select a staff member before setting status to In Progress.']);
+                break;
+            }
+
+            $newStatus = 'In Progress';
+            $upd = $conn->prepare('UPDATE complaints SET status = ?, assigned_staff = ? WHERE id = ?');
+            $upd->bind_param('ssi', $newStatus, $staff, $id);
+            $upd->execute();
+            $upd->close();
+
+            echo json_encode([
+                'success'        => true,
+                'status'         => $newStatus,
+                'assigned_staff' => htmlspecialchars($staff),
+                'message'        => 'Complaint #' . $id . ' assigned to ' . htmlspecialchars($staff) . ' and marked In Progress.'
+            ]);
+        } elseif ($current === 'In Progress') {
+            // Moving to Resolved
+            $newStatus = 'Resolved';
+            $upd = $conn->prepare('UPDATE complaints SET status = ? WHERE id = ?');
+            $upd->bind_param('si', $newStatus, $id);
+            $upd->execute();
+            $upd->close();
+
+            echo json_encode([
+                'success' => true,
+                'status'  => $newStatus,
+                'message' => 'Complaint #' . $id . ' marked as Resolved.'
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'No further status transitions available for status: ' . $current]);
         }
-
-        $newStatus = $transitions[$current];
-        $upd = $conn->prepare('UPDATE complaints SET status = ? WHERE id = ?');
-        $upd->bind_param('si', $newStatus, $id);
-        $upd->execute();
-        $upd->close();
-
-        echo json_encode(['success' => true, 'status' => $newStatus]);
         break;
 
     // ============================================================
@@ -128,14 +147,14 @@ switch ($action) {
             break;
         }
 
-        // Verify ownership and current status
+        // Verify ownership and status
         $stmt = $conn->prepare('SELECT status FROM complaints WHERE id = ? AND student_id = ?');
         $stmt->bind_param('ii', $id, $studentId);
         $stmt->execute();
         $result = $stmt->get_result();
 
         if ($result->num_rows === 0) {
-            echo json_encode(['success' => false, 'error' => 'Complaint not found or not yours.']);
+            echo json_encode(['success' => false, 'error' => 'Complaint not found or not owned by you.']);
             $stmt->close();
             break;
         }
@@ -144,7 +163,7 @@ switch ($action) {
         $stmt->close();
 
         if ($current !== 'Submitted') {
-            echo json_encode(['success' => false, 'error' => 'Only complaints with status "Submitted" can be cancelled.']);
+            echo json_encode(['success' => false, 'error' => 'Only complaints with "Submitted" status can be cancelled.']);
             break;
         }
 
@@ -154,7 +173,11 @@ switch ($action) {
         $upd->execute();
         $upd->close();
 
-        echo json_encode(['success' => true, 'status' => 'Cancelled']);
+        echo json_encode([
+            'success' => true,
+            'status'  => 'Cancelled',
+            'message' => 'Complaint #' . $id . ' has been successfully cancelled.'
+        ]);
         break;
 
     // ============================================================
@@ -172,18 +195,18 @@ switch ($action) {
         $studentId = (int) $_SESSION['student_id'];
 
         if ($id <= 0 || $rating < 1 || $rating > 5) {
-            echo json_encode(['success' => false, 'error' => 'Invalid complaint ID or rating (1-5).']);
+            echo json_encode(['success' => false, 'error' => 'Please select a valid rating between 1 and 5.']);
             break;
         }
 
-        // Verify ownership, status = Resolved, and not already rated
+        // Verify ownership and status
         $stmt = $conn->prepare('SELECT status, rating FROM complaints WHERE id = ? AND student_id = ?');
         $stmt->bind_param('ii', $id, $studentId);
         $stmt->execute();
         $result = $stmt->get_result();
 
         if ($result->num_rows === 0) {
-            echo json_encode(['success' => false, 'error' => 'Complaint not found or not yours.']);
+            echo json_encode(['success' => false, 'error' => 'Complaint not found or not owned by you.']);
             $stmt->close();
             break;
         }
@@ -192,7 +215,7 @@ switch ($action) {
         $stmt->close();
 
         if ($row['status'] !== 'Resolved') {
-            echo json_encode(['success' => false, 'error' => 'Can only rate resolved complaints.']);
+            echo json_encode(['success' => false, 'error' => 'Only resolved complaints can be rated.']);
             break;
         }
         if ($row['rating'] !== null) {
@@ -205,7 +228,11 @@ switch ($action) {
         $upd->execute();
         $upd->close();
 
-        echo json_encode(['success' => true, 'rating' => $rating]);
+        echo json_encode([
+            'success' => true,
+            'rating'  => $rating,
+            'message' => 'Thank you! Rating of ' . $rating . ' star(s) submitted for Complaint #' . $id . '.'
+        ]);
         break;
 
     // ============================================================
@@ -214,7 +241,7 @@ switch ($action) {
     case 'post_notice':
         if (!isset($_SESSION['admin_id'])) {
             http_response_code(401);
-            echo json_encode(['success' => false, 'error' => 'Unauthorised.']);
+            echo json_encode(['success' => false, 'error' => 'Unauthorised access.']);
             break;
         }
 
@@ -231,15 +258,17 @@ switch ($action) {
         $stmt->bind_param('ssi', $title, $message, $adminId);
 
         if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'id' => $stmt->insert_id]);
+            echo json_encode([
+                'success' => true,
+                'id'      => $stmt->insert_id,
+                'message' => 'Notice published successfully to the student noticeboard!'
+            ]);
         } else {
-            echo json_encode(['success' => false, 'error' => 'Database error.']);
+            echo json_encode(['success' => false, 'error' => 'Database error while posting notice.']);
         }
         $stmt->close();
         break;
 
-    // ============================================================
-    // DEFAULT: Unknown action
     // ============================================================
     default:
         http_response_code(400);
