@@ -1,0 +1,523 @@
+/* ============================================================
+   styles.css — Hostel Maintenance & Complaint Tracker (v2)
+   Course: NCSM301 Web Development Laboratory
+   Lab 4 & Lab 5: Box Model, External Stylesheet
+   ============================================================ */
+
+/* ---------- Reset & Base ---------- */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #222;
+    background-color: #eef1f5;
+}
+
+/* ---------- Page Container ---------- */
+.page-container {
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 24px;
+    border: 1px solid gray;
+    background-color: #ffffff;
+    border-radius: 6px;
+}
+
+/* ---------- Header ---------- */
+.site-header {
+    text-align: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #34495e;
+}
+
+.site-header h1 {
+    margin: 0 0 4px;
+    font-size: 1.55em;
+    color: #2c3e50;
+}
+
+.subtitle {
+    margin: 0;
+    color: #666;
+    font-size: 0.93em;
+}
+
+/* ---------- Top Navigation ---------- */
+.top-nav {
+    margin-top: 12px;
+}
+
+.top-nav a {
+    display: inline-block;
+    margin: 0 6px;
+    padding: 6px 14px;
+    text-decoration: none;
+    color: #2c3e50;
+    border: 1px solid #2c3e50;
+    border-radius: 4px;
+    font-size: 0.88em;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.top-nav a:hover,
+.top-nav a.nav-active {
+    background-color: #2c3e50;
+    color: #fff;
+}
+
+/* ---------- Section ---------- */
+.section {
+    margin-top: 24px;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #fafbfc;
+}
+
+.section h2 {
+    margin: 0 0 14px;
+    font-size: 1.2em;
+    color: #2c3e50;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 8px;
+}
+
+/* ---------- Tab Bar (Login page) ---------- */
+.tab-bar {
+    display: flex;
+    border-bottom: 2px solid #ddd;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 10px;
+    font-size: 1em;
+    font-family: inherit;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-bottom: none;
+    cursor: pointer;
+    color: #555;
+    transition: background-color 0.2s;
+}
+
+.tab-btn:first-child {
+    border-radius: 5px 0 0 0;
+}
+
+.tab-btn:last-child {
+    border-radius: 0 5px 0 0;
+}
+
+.tab-btn.tab-active {
+    background: #fff;
+    color: #2c3e50;
+    font-weight: bold;
+    border-bottom: 2px solid #fff;
+    margin-bottom: -2px;
+}
+
+.login-panel {
+    padding: 10px 0;
+}
+
+.login-panel.hidden {
+    display: none;
+}
+
+.login-footer {
+    margin-top: 24px;
+    padding: 14px;
+    background: #f8f9fa;
+    border: 1px dashed #ccc;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: #555;
+}
+
+.login-footer p {
+    margin: 0 0 6px;
+    font-weight: bold;
+}
+
+.login-footer ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.login-footer li {
+    margin-bottom: 3px;
+}
+
+/* ---------- Form ---------- */
+.form-card {
+    margin-top: 10px;
+}
+
+.form-group {
+    margin-bottom: 14px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: bold;
+    font-size: 0.88em;
+    color: #444;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    font-size: 0.93em;
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #2c3e50;
+    box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.12);
+}
+
+.form-group input[readonly] {
+    background-color: #eef1f5;
+    color: #555;
+    cursor: default;
+}
+
+/* Two-column form row */
+.form-row {
+    display: flex;
+    gap: 14px;
+}
+
+.form-group.half {
+    flex: 1;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+    display: inline-block;
+    padding: 8px 20px;
+    font-size: 0.93em;
+    font-family: inherit;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s, opacity 0.2s;
+}
+
+.btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background-color: #2c3e50;
+    color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: #1a252f;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: #545b62;
+}
+
+.btn-advance {
+    background-color: #27ae60;
+    color: #fff;
+    padding: 5px 10px;
+    font-size: 0.82em;
+}
+
+.btn-advance:hover:not(:disabled) {
+    background-color: #1e8449;
+}
+
+.btn-cancel {
+    background-color: #e74c3c;
+    color: #fff;
+    padding: 5px 10px;
+    font-size: 0.82em;
+}
+
+.btn-cancel:hover:not(:disabled) {
+    background-color: #c0392b;
+}
+
+.btn-rate {
+    background-color: #f39c12;
+    color: #fff;
+    padding: 4px 10px;
+    font-size: 0.82em;
+    margin-left: 4px;
+}
+
+.btn-rate:hover:not(:disabled) {
+    background-color: #d68910;
+}
+
+/* ---------- Filter Bar ---------- */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-group label {
+    font-size: 0.82em;
+    font-weight: bold;
+    margin-bottom: 3px;
+    color: #444;
+}
+
+.filter-group select {
+    padding: 6px 10px;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    font-size: 0.88em;
+}
+
+/* ---------- Statistics Cards ---------- */
+.stats-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.stat-card {
+    flex: 1;
+    text-align: center;
+    padding: 16px 10px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}
+
+.stat-card .stat-number {
+    margin: 0;
+    font-size: 2em;
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+.stat-card .stat-label {
+    margin: 6px 0 0;
+    font-size: 0.85em;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-open {
+    background-color: #eaf2f8;
+    border-color: #2980b9;
+}
+
+.stat-open .stat-number {
+    color: #2980b9;
+}
+
+.stat-resolved {
+    background-color: #eafaf1;
+    border-color: #27ae60;
+}
+
+.stat-resolved .stat-number {
+    color: #27ae60;
+}
+
+.stat-pending {
+    background-color: #fef9e7;
+    border-color: #f39c12;
+}
+
+.stat-pending .stat-number {
+    color: #f39c12;
+}
+
+/* ---------- Noticeboard ---------- */
+.notice-card {
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    background-color: #fef9e7;
+    border-left: 4px solid #f39c12;
+    border-radius: 0 4px 4px 0;
+}
+
+.notice-card h3 {
+    margin: 0 0 4px;
+    font-size: 1em;
+    color: #7d6608;
+}
+
+.notice-card p {
+    margin: 0;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.notice-card .notice-meta {
+    margin-top: 6px;
+    font-size: 0.78em;
+    color: #999;
+}
+
+.no-notices {
+    color: #999;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+/* ---------- Data Table ---------- */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+    font-size: 0.87em;
+}
+
+.data-table thead {
+    background-color: #2c3e50;
+    color: #fff;
+}
+
+.data-table th,
+.data-table td {
+    padding: 8px 9px;
+    text-align: left;
+    border: 1px solid #ddd;
+}
+
+.data-table tbody tr:nth-child(even) {
+    background-color: #f4f6f8;
+}
+
+.data-table tbody tr:hover {
+    background-color: #e8ecf0;
+}
+
+/* ---------- Status Badges ---------- */
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.84em;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.status-submitted {
+    background-color: #f39c12;
+    color: #fff;
+}
+
+.status-inprogress {
+    background-color: #2980b9;
+    color: #fff;
+}
+
+.status-resolved {
+    background-color: #27ae60;
+    color: #fff;
+}
+
+.status-cancelled {
+    background-color: #95a5a6;
+    color: #fff;
+}
+
+/* ---------- Category Badges ---------- */
+.cat-electrical {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.cat-plumbing {
+    background-color: #cce5ff;
+    color: #004085;
+}
+
+.cat-network {
+    background-color: #e2d5f1;
+    color: #4a148c;
+}
+
+.cat-housekeeping {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.cat-messhygiene {
+    background-color: #fce4ec;
+    color: #880e4f;
+}
+
+/* ---------- Rating Stars ---------- */
+.rating-display {
+    color: #f39c12;
+    font-size: 1em;
+    letter-spacing: 1px;
+}
+
+.rating-select {
+    width: auto;
+    padding: 3px 6px;
+    font-size: 0.85em;
+    border: 1px solid #bbb;
+    border-radius: 3px;
+}
+
+/* ---------- Messages ---------- */
+.msg-success {
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    border: 1px solid #27ae60;
+    border-radius: 4px;
+    background-color: #d5f5e3;
+    color: #1e8449;
+    font-size: 0.9em;
+}
+
+.msg-error {
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    border: 1px solid #e74c3c;
+    border-radius: 4px;
+    background-color: #fadbd8;
+    color: #922b21;
+    font-size: 0.9em;
+}
+
+.msg-info {
+    color: #666;
+    font-size: 0.88em;
+    font-style: italic;
+}
